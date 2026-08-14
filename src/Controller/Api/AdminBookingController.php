@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Api\BookingPresenter;
+use App\Booking\BookingCreator;
 use App\Booking\BookingEditor;
 use App\Booking\BookingException;
 use App\Booking\BookingWorkflow;
+use App\Booking\CustomerProvisioner;
 use App\Entity\Booking;
 use App\Entity\PaymentProof;
 use App\Entity\User;
@@ -44,9 +46,61 @@ final class AdminBookingController extends AbstractController
         private readonly BookingRepository $bookings,
         private readonly BookingWorkflow $workflow,
         private readonly BookingEditor $editor,
+        private readonly BookingCreator $creator,
+        private readonly CustomerProvisioner $customers,
         private readonly BookingPresenter $presenter,
         private readonly PrivateFileStorage $storage,
     ) {
+    }
+
+    /**
+     * Alta de una reserva desde el panel (p. ej. un cliente que llama por
+     * teléfono). Se resuelve o crea el cliente por su correo y se reutiliza el
+     * mismo motor que la web: respeta el cupo y nace en «pendiente de pago».
+     */
+    #[Route('', name: 'api_admin_bookings_create', methods: ['POST'])]
+    public function create(Request $request): JsonResponse
+    {
+        try {
+            $payload = $request->toArray();
+        } catch (\Throwable) {
+            return $this->fail('invalid_json', 'El cuerpo de la petición no es JSON válido.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $lines = $payload['lines'] ?? null;
+        if (!\is_array($lines) || [] === $lines) {
+            return $this->fail('invalid_booking', 'Añade al menos un vuelo a la reserva.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $customerData = \is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
+
+        try {
+            $customer = $this->customers->findOrCreate(
+                (string) ($customerData['email'] ?? ''),
+                $this->nullableString($customerData['fullName'] ?? null),
+                $this->nullableString($customerData['phone'] ?? null),
+            );
+
+            $booking = $this->creator->create(
+                $customer,
+                $lines,
+                $this->nullableString($payload['contactPhone'] ?? null),
+                $this->nullableString($payload['note'] ?? null),
+            );
+        } catch (BookingException $e) {
+            return new JsonResponse([
+                'error' => array_filter([
+                    'code' => $e->errorCode,
+                    'message' => $e->getMessage(),
+                    'context' => $e->context ?: null,
+                ]),
+            ], $e->statusCode);
+        }
+
+        return new JsonResponse(
+            ['data' => $this->presenter->booking($booking, forAdmin: true)],
+            Response::HTTP_CREATED,
+        );
     }
 
     #[Route('', name: 'api_admin_bookings_index', methods: ['GET'])]
@@ -392,5 +446,16 @@ final class AdminBookingController extends AbstractController
     private function fail(string $code, string $message, int $status): JsonResponse
     {
         return new JsonResponse(['error' => ['code' => $code, 'message' => $message]], $status);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return '' === $value ? null : $value;
     }
 }
