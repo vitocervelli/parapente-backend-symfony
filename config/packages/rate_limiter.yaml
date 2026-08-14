@@ -1,0 +1,14 @@
+framework:
+    rate_limiter:
+        # El alta de clientes es pública: sin límite, se puede enumerar correos
+        # y llenar la base de cuentas basura.
+        register:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '15 minutes'
+
+        # Frena el probado de contraseñas por fuerza bruta.
+        login:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '15 minutes'

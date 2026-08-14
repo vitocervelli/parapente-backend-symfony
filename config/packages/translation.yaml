@@ -1,0 +1,6 @@
+framework:
+    # Los mensajes del Validator llegan al cliente final: en español.
+    default_locale: es
+    translator:
+        default_path: '%kernel.project_dir%/translations'
+        providers:
