@@ -67,6 +67,14 @@ class Booking
     #[ORM\Column(name: 'seats_released_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $seatsReleasedAt = null;
 
+    /**
+     * Reserva histórica: alta manual de una reserva anterior al sistema. No
+     * retiene plazas, nace en un estado final y sus líneas pueden no tener
+     * franja. Sirve para filtrarlas en el panel y excluirlas del área de cliente.
+     */
+    #[ORM\Column(name: 'is_historical', options: ['default' => false])]
+    private bool $isHistorical = false;
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -83,11 +91,24 @@ class Booking
     #[ORM\OrderBy(['uploadedAt' => 'DESC', 'id' => 'DESC'])]
     private Collection $proofs;
 
+    /**
+     * Galería del vuelo (fotos y vídeos que sube el equipo). A diferencia de
+     * los comprobantes sí hay orphanRemoval: el admin puede borrar elementos,
+     * y quien lo hace debe borrar también el fichero del almacén privado
+     * (ver AdminBookingMediaController).
+     *
+     * @var Collection<int, BookingMedia>
+     */
+    #[ORM\OneToMany(mappedBy: 'booking', targetEntity: BookingMedia::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['uploadedAt' => 'ASC', 'id' => 'ASC'])]
+    private Collection $media;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->lines = new ArrayCollection();
         $this->proofs = new ArrayCollection();
+        $this->media = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -128,6 +149,18 @@ class Booking
     public function setStatus(BookingStatus $status): static
     {
         $this->status = $status;
+
+        return $this;
+    }
+
+    public function isHistorical(): bool
+    {
+        return $this->isHistorical;
+    }
+
+    public function setIsHistorical(bool $isHistorical): static
+    {
+        $this->isHistorical = $isHistorical;
 
         return $this;
     }
@@ -304,6 +337,29 @@ class Booking
             $this->proofs->add($proof);
             $proof->setBooking($this);
         }
+
+        return $this;
+    }
+
+    /** @return Collection<int, BookingMedia> */
+    public function getMedia(): Collection
+    {
+        return $this->media;
+    }
+
+    public function addMedia(BookingMedia $media): static
+    {
+        if (!$this->media->contains($media)) {
+            $this->media->add($media);
+            $media->setBooking($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMedia(BookingMedia $media): static
+    {
+        $this->media->removeElement($media);
 
         return $this;
     }

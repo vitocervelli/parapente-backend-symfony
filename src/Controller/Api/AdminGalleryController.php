@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use App\Api\ServicePresenter;
-use App\Entity\InclusionItem;
-use App\Repository\InclusionItemRepository;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use App\Api\GalleryPresenter;
+use App\Entity\GalleryPhoto;
+use App\Repository\GalleryPhotoRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,35 +16,35 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-/** Mantenimiento del catálogo de elementos incluidos. */
-#[Route('/api/admin/inclusion-items')]
+/** Mantenimiento de la galería pública. Requiere token JWT con ROLE_ADMIN. */
+#[Route('/api/admin/gallery')]
 #[IsGranted('ROLE_ADMIN')]
-final class AdminInclusionItemController extends AbstractController
+final class AdminGalleryController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly InclusionItemRepository $items,
-        private readonly ServicePresenter $presenter,
+        private readonly GalleryPhotoRepository $photos,
+        private readonly GalleryPresenter $presenter,
         private readonly ValidatorInterface $validator,
     ) {
     }
 
-    #[Route('', name: 'api_admin_items_index', methods: ['GET'])]
+    #[Route('', name: 'api_admin_gallery_index', methods: ['GET'])]
     public function index(): JsonResponse
     {
-        return new JsonResponse(['data' => $this->presenter->items($this->items->findAllOrdered())]);
+        return new JsonResponse(['data' => $this->presenter->photos($this->photos->findAllOrdered())]);
     }
 
-    #[Route('', name: 'api_admin_items_create', methods: ['POST'])]
+    #[Route('', name: 'api_admin_gallery_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $item = new InclusionItem();
-        $this->em->persist($item);
+        $photo = new GalleryPhoto();
+        $this->em->persist($photo);
 
-        return $this->save($item, $request, Response::HTTP_CREATED);
+        return $this->save($photo, $request, Response::HTTP_CREATED);
     }
 
-    #[Route('/reorder', name: 'api_admin_items_reorder', methods: ['POST'])]
+    #[Route('/reorder', name: 'api_admin_gallery_reorder', methods: ['POST'])]
     public function reorder(Request $request): JsonResponse
     {
         try {
@@ -71,50 +70,42 @@ final class AdminInclusionItemController extends AbstractController
             $positionsById[$id] = $position;
         }
 
-        $updated = $this->items->applyOrder($positionsById);
+        $updated = $this->photos->applyOrder($positionsById);
         $this->em->flush();
 
         return new JsonResponse(['data' => ['updated' => $updated]]);
     }
 
-    #[Route('/{id}', name: 'api_admin_items_update', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'api_admin_gallery_update', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
     public function update(int $id, Request $request): JsonResponse
     {
-        $item = $this->items->find($id);
+        $photo = $this->photos->find($id);
 
-        if (null === $item) {
+        if (null === $photo) {
             return $this->notFound();
         }
 
-        return $this->save($item, $request, Response::HTTP_OK);
+        return $this->save($photo, $request, Response::HTTP_OK);
     }
 
-    #[Route('/{id}', name: 'api_admin_items_delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'api_admin_gallery_delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
     public function delete(int $id): JsonResponse
     {
-        $item = $this->items->find($id);
+        $photo = $this->photos->find($id);
 
-        if (null === $item) {
+        if (null === $photo) {
             return $this->notFound();
         }
 
-        $this->em->remove($item);
-
-        try {
-            $this->em->flush();
-        } catch (ForeignKeyConstraintViolationException) {
-            // La FK es RESTRICT a propósito: un elemento en uso no debe desaparecer
-            // de las promociones que ya lo incluyen.
-            return new JsonResponse(
-                ['error' => ['code' => 'item_in_use', 'message' => 'Ese elemento se usa en algún servicio. Quítalo de ahí antes de borrarlo.']],
-                Response::HTTP_CONFLICT,
-            );
-        }
+        // El fichero de public/uploads/gallery queda huérfano; es inocuo y la
+        // misma imagen puede reutilizarse en otra foto de la galería.
+        $this->em->remove($photo);
+        $this->em->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    private function save(InclusionItem $item, Request $request, int $successStatus): JsonResponse
+    private function save(GalleryPhoto $photo, Request $request, int $successStatus): JsonResponse
     {
         try {
             $payload = $request->toArray();
@@ -125,28 +116,31 @@ final class AdminInclusionItemController extends AbstractController
             );
         }
 
-        if (\array_key_exists('slug', $payload)) {
-            $item->setSlug(trim((string) $payload['slug']));
+        if (\array_key_exists('imagePath', $payload)) {
+            $photo->setImagePath(trim((string) $payload['imagePath']));
         }
 
-        if (\array_key_exists('defaultLabel', $payload)) {
-            $item->setDefaultLabel(trim((string) $payload['defaultLabel']));
+        if (\array_key_exists('alt', $payload)) {
+            $photo->setAlt(trim((string) $payload['alt']));
         }
 
-        if (\array_key_exists('icon', $payload)) {
-            $item->setIcon(trim((string) $payload['icon']) ?: 'check');
+        if (\array_key_exists('isFeatured', $payload)) {
+            $photo->setIsFeatured((bool) $payload['isFeatured']);
         }
 
-        if (\array_key_exists('iconPath', $payload)) {
-            $raw = $payload['iconPath'];
-            $item->setIconPath((null === $raw || '' === trim((string) $raw)) ? null : trim((string) $raw));
+        if (\array_key_exists('isWide', $payload)) {
+            $photo->setIsWide((bool) $payload['isWide']);
         }
 
         if (\array_key_exists('position', $payload)) {
-            $item->setPosition((int) $payload['position']);
+            $photo->setPosition((int) $payload['position']);
         }
 
-        $violations = $this->validator->validate($item);
+        if (\array_key_exists('isActive', $payload)) {
+            $photo->setIsActive((bool) $payload['isActive']);
+        }
+
+        $violations = $this->validator->validate($photo);
         if (count($violations) > 0) {
             $errors = [];
             foreach ($violations as $violation) {
@@ -158,13 +152,13 @@ final class AdminInclusionItemController extends AbstractController
 
         $this->em->flush();
 
-        return new JsonResponse(['data' => $this->presenter->item($item)], $successStatus);
+        return new JsonResponse(['data' => $this->presenter->photo($photo)], $successStatus);
     }
 
     private function notFound(): JsonResponse
     {
         return new JsonResponse(
-            ['error' => ['code' => 'item_not_found', 'message' => 'No existe ese elemento.']],
+            ['error' => ['code' => 'photo_not_found', 'message' => 'No existe esa foto.']],
             Response::HTTP_NOT_FOUND,
         );
     }

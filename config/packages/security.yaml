@@ -49,6 +49,9 @@ security:
         - { path: ^/api/availability, roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/api/settings$, roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/api/stats$, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/allies$, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/gallery$, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/reels$, roles: PUBLIC_ACCESS, methods: [GET] }
 
         # Cualquiera que haya iniciado sesión, sea cliente o administrador
         - { path: ^/api/me$, roles: IS_AUTHENTICATED_FULLY }

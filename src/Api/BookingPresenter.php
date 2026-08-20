@@ -6,6 +6,7 @@ namespace App\Api;
 
 use App\Entity\Booking;
 use App\Entity\BookingLine;
+use App\Entity\BookingMedia;
 use App\Entity\PaymentProof;
 
 final class BookingPresenter
@@ -43,12 +44,14 @@ final class BookingPresenter
             'createdAt' => $booking->getCreatedAt()->format(\DATE_ATOM),
             'lines' => array_map(fn (BookingLine $l) => $this->line($l), $booking->getLines()->toArray()),
             'proofs' => array_map(fn (PaymentProof $p) => $this->proof($p), $booking->getProofs()->toArray()),
+            'media' => array_map(fn (BookingMedia $m) => $this->media($m), $booking->getMedia()->toArray()),
         ];
 
         if ($forAdmin) {
             $customer = $booking->getCustomer();
             $payload['id'] = $booking->getId();
             $payload['adminNote'] = $booking->getAdminNote();
+            $payload['isHistorical'] = $booking->isHistorical();
             // Vencida: aún retiene plazas pese a haber pasado su plazo.
             $payload['isOverdue'] = $booking->isOverdue(new \DateTimeImmutable(), new \DateTimeImmutable('today'));
             $payload['customer'] = null === $customer ? null : [
@@ -104,6 +107,8 @@ final class BookingPresenter
                 'endTime' => $slot->getEndTime()->format('H:i'),
                 'label' => sprintf('%s–%s', $slot->getStartTime()->format('H:i'), $slot->getEndTime()->format('H:i')),
             ],
+            // Fecha del vuelo cuando no hay franja (reservas históricas).
+            'flightDate' => $line->getFlightDate()?->format('Y-m-d'),
             'attendees' => array_map(fn ($a) => [
                 'id' => $a->getId(),
                 'fullName' => $a->getFullName(),
@@ -119,6 +124,21 @@ final class BookingPresenter
                     ],
                 ], $a->getExtras()->toArray()),
             ], $line->getAttendees()->toArray()),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function media(BookingMedia $media): array
+    {
+        return [
+            'id' => $media->getId(),
+            'kind' => $media->getKind()->value,
+            'mimeType' => $media->getMimeType(),
+            'originalName' => $media->getOriginalName(),
+            'sizeBytes' => $media->getSizeBytes(),
+            'uploadedAt' => $media->getUploadedAt()->format(\DATE_ATOM),
+            // La ruta de almacenamiento NO se expone: el fichero se sirve solo
+            // por los endpoints autenticados de descarga.
         ];
     }
 

@@ -52,6 +52,10 @@ class Extra
     #[Assert\NotBlank]
     private string $icon = 'check';
 
+    /** Escotilla para subir un icono propio cuando la clave no basta. */
+    #[ORM\Column(name: 'icon_path', length: 255, nullable: true)]
+    private ?string $iconPath = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $note = null;
 
@@ -122,6 +126,18 @@ class Extra
     public function setIcon(string $icon): static
     {
         $this->icon = $icon;
+
+        return $this;
+    }
+
+    public function getIconPath(): ?string
+    {
+        return $this->iconPath;
+    }
+
+    public function setIconPath(?string $iconPath): static
+    {
+        $this->iconPath = $iconPath;
 
         return $this;
     }

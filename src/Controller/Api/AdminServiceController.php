@@ -194,10 +194,6 @@ final class AdminServiceController extends AbstractController
             $service->setCoverImage($this->nullableString($payload['image']));
         }
 
-        if (\array_key_exists('flyer', $payload)) {
-            $service->setFlyerImage($this->nullableString($payload['flyer']));
-        }
-
         if (\array_key_exists('people', $payload)) {
             $service->setPeople((int) $payload['people']);
         }

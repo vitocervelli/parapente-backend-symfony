@@ -4,28 +4,30 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Entity\InclusionItem;
+use App\Entity\Ally;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<InclusionItem>
+ * @extends ServiceEntityRepository<Ally>
  */
-class InclusionItemRepository extends ServiceEntityRepository
+class AllyRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, InclusionItem::class);
+        parent::__construct($registry, Ally::class);
     }
 
-    /** @return InclusionItem[] */
+    /** @return Ally[] */
     public function findAllOrdered(): array
     {
-        return $this->createQueryBuilder('i')
-            ->orderBy('i.position', 'ASC')
-            ->addOrderBy('i.defaultLabel', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->findBy([], ['position' => 'ASC', 'id' => 'ASC']);
+    }
+
+    /** @return Ally[] */
+    public function findAllActiveOrdered(): array
+    {
+        return $this->findBy(['isActive' => true], ['position' => 'ASC', 'id' => 'ASC']);
     }
 
     /**
@@ -39,16 +41,16 @@ class InclusionItemRepository extends ServiceEntityRepository
             return 0;
         }
 
-        $rows = $this->createQueryBuilder('i')
-            ->andWhere('i.id IN (:ids)')
+        $allies = $this->createQueryBuilder('a')
+            ->andWhere('a.id IN (:ids)')
             ->setParameter('ids', array_keys($positionsById))
             ->getQuery()
             ->getResult();
 
-        foreach ($rows as $row) {
-            $row->setPosition($positionsById[$row->getId()]);
+        foreach ($allies as $ally) {
+            $ally->setPosition($positionsById[$ally->getId()]);
         }
 
-        return count($rows);
+        return count($allies);
     }
 }

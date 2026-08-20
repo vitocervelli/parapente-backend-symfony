@@ -35,9 +35,21 @@ class BookingLine
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     private ?Service $service = null;
 
+    /**
+     * La franja reservada. Nullable solo para reservas históricas (altas
+     * manuales de reservas anteriores al sistema): no ocurrieron en ninguna
+     * franja del calendario y su fecha vive en $flightDate.
+     */
     #[ORM\ManyToOne(targetEntity: AvailabilitySlot::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
     private ?AvailabilitySlot $slot = null;
+
+    /**
+     * Fecha del vuelo cuando no hay franja (reservas históricas). En las
+     * reservas normales la fecha la aporta el slot y esto queda null.
+     */
+    #[ORM\Column(name: 'flight_date', type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $flightDate = null;
 
     /** Cuántas veces se reserva este servicio en esta franja. */
     #[ORM\Column(type: Types::SMALLINT, options: ['unsigned' => true, 'default' => 1])]
@@ -121,6 +133,27 @@ class BookingLine
         $this->slot = $slot;
 
         return $this;
+    }
+
+    public function getFlightDate(): ?\DateTimeImmutable
+    {
+        return $this->flightDate;
+    }
+
+    public function setFlightDate(?\DateTimeImmutable $flightDate): static
+    {
+        // Sin hora: es una fecha, coherente con cómo AvailabilitySlot guarda date.
+        $this->flightDate = $flightDate?->setTime(0, 0);
+
+        return $this;
+    }
+
+    /**
+     * Fecha del vuelo mire donde mire: la de la franja si la hay, o la histórica.
+     */
+    public function getEffectiveDate(): ?\DateTimeImmutable
+    {
+        return $this->slot?->getDate() ?? $this->flightDate;
     }
 
     public function getQuantity(): int

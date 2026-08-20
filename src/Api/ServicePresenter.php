@@ -48,7 +48,6 @@ final class ServicePresenter
             'durationMinutes' => $service->getDurationMinutes(),
             'badge' => $service->getBadge(),
             'image' => $service->getCoverImage(),
-            'flyer' => $service->getFlyerImage(),
             'position' => $service->getPosition(),
             'isActive' => $service->isActive(),
             'showOnHome' => $service->isShownOnHome(),
@@ -84,6 +83,7 @@ final class ServicePresenter
                             'display' => ($extra?->getCurrency() ?? $service->getCurrency())->format($extra?->getPriceAmount() ?? '0.00'),
                         ],
                         'icon' => $extra?->getIcon() ?? 'check',
+                        'iconPath' => $extra?->getIconPath(),
                         'note' => $extra?->getNote(),
                         'position' => $serviceExtra->getPosition(),
                     ];
@@ -126,6 +126,7 @@ final class ServicePresenter
             ],
             'currency' => $extra->getCurrency()->value,
             'icon' => $extra->getIcon(),
+            'iconPath' => $extra->getIconPath(),
             'note' => $extra->getNote(),
             'position' => $extra->getPosition(),
             'isActive' => $extra->isActive(),

@@ -29,6 +29,8 @@ class BookingRepository extends ServiceEntityRepository
     {
         return $this->baseQuery()
             ->andWhere('b.customer = :customer')
+            // Las históricas son un registro interno del panel: el cliente no las ve.
+            ->andWhere('b.isHistorical = false')
             ->setParameter('customer', $customer)
             ->orderBy('b.createdAt', 'DESC')
             ->getQuery()

@@ -10,10 +10,12 @@ use App\Booking\BookingEditor;
 use App\Booking\BookingException;
 use App\Booking\BookingWorkflow;
 use App\Booking\CustomerProvisioner;
+use App\Booking\HistoricalBookingCreator;
 use App\Entity\Booking;
 use App\Entity\PaymentProof;
 use App\Entity\User;
 use App\Enum\BookingStatus;
+use App\Enum\Currency;
 use App\Repository\BookingRepository;
 use App\Storage\PrivateFileStorage;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -47,6 +49,7 @@ final class AdminBookingController extends AbstractController
         private readonly BookingWorkflow $workflow,
         private readonly BookingEditor $editor,
         private readonly BookingCreator $creator,
+        private readonly HistoricalBookingCreator $historicalCreator,
         private readonly CustomerProvisioner $customers,
         private readonly BookingPresenter $presenter,
         private readonly PrivateFileStorage $storage,
@@ -86,6 +89,102 @@ final class AdminBookingController extends AbstractController
                 $lines,
                 $this->nullableString($payload['contactPhone'] ?? null),
                 $this->nullableString($payload['note'] ?? null),
+            );
+        } catch (BookingException $e) {
+            return new JsonResponse([
+                'error' => array_filter([
+                    'code' => $e->errorCode,
+                    'message' => $e->getMessage(),
+                    'context' => $e->context ?: null,
+                ]),
+            ], $e->statusCode);
+        }
+
+        return new JsonResponse(
+            ['data' => $this->presenter->booking($booking, forAdmin: true)],
+            Response::HTTP_CREATED,
+        );
+    }
+
+    /**
+     * Alta de una reserva HISTÓRICA (anterior al sistema). No pasa por el cupo:
+     * nace completada/no-show, con el nombre y precio del servicio tecleados a
+     * mano y sin franja (su fecha va en flightDate). Suma en los contadores.
+     */
+    #[Route('/historical', name: 'api_admin_bookings_historical', methods: ['POST'])]
+    public function createHistorical(Request $request): JsonResponse
+    {
+        try {
+            $payload = $request->toArray();
+        } catch (\Throwable) {
+            return $this->fail('invalid_json', 'El cuerpo de la petición no es JSON válido.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $serviceName = $this->nullableString($payload['serviceName'] ?? null);
+        if (null === $serviceName) {
+            return $this->fail('invalid_service', 'Escribe el nombre del servicio o la promoción.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $serviceName = substr($serviceName, 0, 160);
+
+        $flightDate = \DateTimeImmutable::createFromFormat('!Y-m-d', trim((string) ($payload['flightDate'] ?? '')));
+        if (false === $flightDate) {
+            return $this->fail('invalid_date', 'La fecha del vuelo no es válida (usa AAAA-MM-DD).', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if ($flightDate > new \DateTimeImmutable('today')) {
+            return $this->fail('invalid_date', 'La fecha del vuelo no puede ser futura.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $peopleCount = (int) ($payload['peopleCount'] ?? 0);
+        if ($peopleCount < 1 || $peopleCount > 50) {
+            return $this->fail('invalid_people', 'El número de personas debe estar entre 1 y 50.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $rawAmount = trim((string) ($payload['amount'] ?? ''));
+        if (1 !== preg_match('/^\d{1,8}([.,]\d{1,2})?$/', $rawAmount)) {
+            return $this->fail('invalid_amount', 'El importe no tiene un formato válido.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $amount = number_format((float) str_replace(',', '.', $rawAmount), 2, '.', '');
+
+        $currency = Currency::tryFrom((string) ($payload['currency'] ?? ''));
+        if (null === $currency) {
+            return $this->fail('invalid_currency', 'La moneda debe ser EUR o USD.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $status = match ($this->nullableString($payload['status'] ?? null)) {
+            null, 'completed' => BookingStatus::Completed,
+            'no_show' => BookingStatus::NoShow,
+            default => null,
+        };
+        if (null === $status) {
+            return $this->fail('invalid_status', 'El estado de una reserva histórica solo puede ser «completada» o «no-show».', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $passengers = [];
+        if (\is_array($payload['passengers'] ?? null)) {
+            foreach ($payload['passengers'] as $name) {
+                $passengers[] = (string) $name;
+            }
+        }
+
+        $customerData = \is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
+
+        try {
+            $customer = $this->customers->findOrCreate(
+                (string) ($customerData['email'] ?? ''),
+                $this->nullableString($customerData['fullName'] ?? null),
+                $this->nullableString($customerData['phone'] ?? null),
+            );
+
+            $booking = $this->historicalCreator->create(
+                $customer,
+                $serviceName,
+                $flightDate,
+                $peopleCount,
+                $amount,
+                $currency,
+                $status,
+                $this->nullableString($payload['note'] ?? null),
+                $passengers,
             );
         } catch (BookingException $e) {
             return new JsonResponse([

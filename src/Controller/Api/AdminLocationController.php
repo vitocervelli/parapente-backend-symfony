@@ -45,6 +45,38 @@ final class AdminLocationController extends AbstractController
         return $this->save($location, $request, Response::HTTP_CREATED);
     }
 
+    #[Route('/reorder', name: 'api_admin_locations_reorder', methods: ['POST'])]
+    public function reorder(Request $request): JsonResponse
+    {
+        try {
+            $payload = $request->toArray();
+        } catch (\Throwable) {
+            return new JsonResponse(
+                ['error' => ['code' => 'invalid_json', 'message' => 'El cuerpo de la petición no es JSON válido.']],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        $order = $payload['order'] ?? null;
+        if (!\is_array($order) || [] === $order) {
+            return new JsonResponse(['errors' => ['order' => 'Envía un array con los ids en el orden deseado.']], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $positionsById = [];
+        foreach (array_values($order) as $position => $rawId) {
+            $id = (int) $rawId;
+            if ($id <= 0) {
+                return new JsonResponse(['errors' => ['order' => 'Todos los ids deben ser números positivos.']], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $positionsById[$id] = $position;
+        }
+
+        $updated = $this->locations->applyOrder($positionsById);
+        $this->em->flush();
+
+        return new JsonResponse(['data' => ['updated' => $updated]]);
+    }
+
     #[Route('/{id}', name: 'api_admin_locations_update', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
     public function update(int $id, Request $request): JsonResponse
     {

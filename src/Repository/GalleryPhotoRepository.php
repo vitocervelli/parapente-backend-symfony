@@ -4,28 +4,30 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Entity\InclusionItem;
+use App\Entity\GalleryPhoto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<InclusionItem>
+ * @extends ServiceEntityRepository<GalleryPhoto>
  */
-class InclusionItemRepository extends ServiceEntityRepository
+class GalleryPhotoRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, InclusionItem::class);
+        parent::__construct($registry, GalleryPhoto::class);
     }
 
-    /** @return InclusionItem[] */
+    /** @return GalleryPhoto[] */
     public function findAllOrdered(): array
     {
-        return $this->createQueryBuilder('i')
-            ->orderBy('i.position', 'ASC')
-            ->addOrderBy('i.defaultLabel', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->findBy([], ['position' => 'ASC', 'id' => 'ASC']);
+    }
+
+    /** @return GalleryPhoto[] */
+    public function findAllActiveOrdered(): array
+    {
+        return $this->findBy(['isActive' => true], ['position' => 'ASC', 'id' => 'ASC']);
     }
 
     /**
@@ -39,8 +41,8 @@ class InclusionItemRepository extends ServiceEntityRepository
             return 0;
         }
 
-        $rows = $this->createQueryBuilder('i')
-            ->andWhere('i.id IN (:ids)')
+        $rows = $this->createQueryBuilder('g')
+            ->andWhere('g.id IN (:ids)')
             ->setParameter('ids', array_keys($positionsById))
             ->getQuery()
             ->getResult();

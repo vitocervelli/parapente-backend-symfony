@@ -73,4 +73,17 @@ final class PrivateFileStorage
             return false;
         }
     }
+
+    /**
+     * Borra un fichero del almacén. La guardia de absolutePath() cierra el
+     * path traversal; los directorios Y/m vacíos se dejan estar.
+     */
+    public function delete(string $relativePath): void
+    {
+        $absolute = $this->absolutePath($relativePath);
+
+        if (!unlink($absolute)) {
+            throw new \RuntimeException('No se pudo borrar el archivo del almacén.');
+        }
+    }
 }

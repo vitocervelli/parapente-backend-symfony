@@ -88,9 +88,6 @@ class Service
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $coverImage = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $flyerImage = null;
-
     #[ORM\Column(type: Types::SMALLINT, options: ['default' => 0])]
     private int $position = 0;
 
@@ -315,18 +312,6 @@ class Service
     public function setCoverImage(?string $coverImage): static
     {
         $this->coverImage = $coverImage;
-
-        return $this;
-    }
-
-    public function getFlyerImage(): ?string
-    {
-        return $this->flyerImage;
-    }
-
-    public function setFlyerImage(?string $flyerImage): static
-    {
-        $this->flyerImage = $flyerImage;
 
         return $this;
     }

@@ -48,4 +48,28 @@ class LocationRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Aplica el orden que dejó el arrastre del panel: posición = índice del id.
+     *
+     * @param array<int, int> $positionsById
+     */
+    public function applyOrder(array $positionsById): int
+    {
+        if ([] === $positionsById) {
+            return 0;
+        }
+
+        $rows = $this->createQueryBuilder('l')
+            ->andWhere('l.id IN (:ids)')
+            ->setParameter('ids', array_keys($positionsById))
+            ->getQuery()
+            ->getResult();
+
+        foreach ($rows as $row) {
+            $row->setPosition($positionsById[$row->getId()]);
+        }
+
+        return count($rows);
+    }
 }
