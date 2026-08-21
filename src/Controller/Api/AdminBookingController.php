@@ -16,6 +16,7 @@ use App\Entity\PaymentProof;
 use App\Entity\User;
 use App\Enum\BookingStatus;
 use App\Enum\Currency;
+use App\Mail\BookingMailer;
 use App\Repository\BookingRepository;
 use App\Storage\PrivateFileStorage;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -53,6 +54,7 @@ final class AdminBookingController extends AbstractController
         private readonly CustomerProvisioner $customers,
         private readonly BookingPresenter $presenter,
         private readonly PrivateFileStorage $storage,
+        private readonly BookingMailer $mailer,
     ) {
     }
 
@@ -78,14 +80,14 @@ final class AdminBookingController extends AbstractController
         $customerData = \is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
 
         try {
-            $customer = $this->customers->findOrCreate(
+            $provisioned = $this->customers->findOrCreate(
                 (string) ($customerData['email'] ?? ''),
                 $this->nullableString($customerData['fullName'] ?? null),
                 $this->nullableString($customerData['phone'] ?? null),
             );
 
             $booking = $this->creator->create(
-                $customer,
+                $provisioned->user,
                 $lines,
                 $this->nullableString($payload['contactPhone'] ?? null),
                 $this->nullableString($payload['note'] ?? null),
@@ -98,6 +100,14 @@ final class AdminBookingController extends AbstractController
                     'context' => $e->context ?: null,
                 ]),
             ], $e->statusCode);
+        }
+
+        // Reserva creada desde el panel: mismo aviso que la web (cliente + admin).
+        $this->mailer->bookingCreated($booking);
+
+        // Cliente nuevo: se le envía su contraseña temporal para que pueda entrar.
+        if ($provisioned->isNew()) {
+            $this->mailer->temporaryPassword($provisioned->user, (string) $provisioned->temporaryPassword);
         }
 
         return new JsonResponse(
@@ -169,11 +179,13 @@ final class AdminBookingController extends AbstractController
         $customerData = \is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
 
         try {
+            // Reserva histórica: se crea/reutiliza el cliente pero NO se le envía
+            // contraseña temporal (son vuelos ya pasados).
             $customer = $this->customers->findOrCreate(
                 (string) ($customerData['email'] ?? ''),
                 $this->nullableString($customerData['fullName'] ?? null),
                 $this->nullableString($customerData['phone'] ?? null),
-            );
+            )->user;
 
             $booking = $this->historicalCreator->create(
                 $customer,

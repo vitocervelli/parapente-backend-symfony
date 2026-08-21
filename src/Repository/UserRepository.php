@@ -22,6 +22,20 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         parent::__construct($registry, User::class);
     }
 
+    /**
+     * Todos los usuarios registrados, los más recientes primero. Para el
+     * listado del panel.
+     *
+     * @return list<User>
+     */
+    public function findAllOrderedByNewest(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->orderBy('u.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
         if (!$user instanceof User) {

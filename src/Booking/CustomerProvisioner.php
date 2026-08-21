@@ -6,6 +6,7 @@ namespace App\Booking;
 
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Security\ReadablePasswordGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -14,9 +15,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Resuelve el cliente de una reserva creada por el panel: reutiliza la cuenta
  * si ya existe ese correo, o crea una cuenta de cliente ligera si no.
  *
- * Las cuentas creadas aquí nacen con una contraseña aleatoria inservible: la
- * reserva queda ligada a un cliente real (el modelo lo exige), pero no se puede
- * entrar con esa cuenta hasta que el cliente establezca su contraseña.
+ * Las cuentas nuevas nacen con una contraseña TEMPORAL fácil de teclear, que se
+ * devuelve en claro (dentro de ProvisionedCustomer) para que el llamador se la
+ * envíe por correo. El cliente entra con ella y la cambia desde su perfil.
  */
 final class CustomerProvisioner
 {
@@ -25,10 +26,11 @@ final class CustomerProvisioner
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly ValidatorInterface $validator,
+        private readonly ReadablePasswordGenerator $passwordGenerator,
     ) {
     }
 
-    public function findOrCreate(string $email, ?string $fullName, ?string $phone): User
+    public function findOrCreate(string $email, ?string $fullName, ?string $phone): ProvisionedCustomer
     {
         $email = strtolower(trim($email));
         if ('' === $email) {
@@ -38,6 +40,7 @@ final class CustomerProvisioner
         $existing = $this->users->findOneBy(['email' => $email]);
         if (null !== $existing) {
             // Se completan los datos que falten sin pisar los que el cliente ya tenga.
+            // NUNCA se toca la contraseña de una cuenta que ya existe.
             if (null !== $fullName && '' !== $fullName && ('' === (string) $existing->getFullName())) {
                 $existing->setFullName($fullName);
             }
@@ -46,15 +49,17 @@ final class CustomerProvisioner
             }
             $this->em->flush();
 
-            return $existing;
+            return new ProvisionedCustomer($existing);
         }
+
+        $temporaryPassword = $this->passwordGenerator->generate();
 
         $user = (new User())
             ->setEmail($email)
             ->setRoles(['ROLE_CUSTOMER'])
             ->setFullName($fullName)
             ->setPhone($phone);
-        $user->setPassword($this->hasher->hashPassword($user, bin2hex(random_bytes(16))));
+        $user->setPassword($this->hasher->hashPassword($user, $temporaryPassword));
 
         $violations = $this->validator->validate($user);
         if (count($violations) > 0) {
@@ -64,6 +69,6 @@ final class CustomerProvisioner
         $this->em->persist($user);
         $this->em->flush();
 
-        return $user;
+        return new ProvisionedCustomer($user, $temporaryPassword);
     }
 }

@@ -48,6 +48,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
+    /** SHA-256 del token de recuperación (nunca se guarda el token en claro). */
+    #[ORM\Column(name: 'reset_token_hash', length: 64, nullable: true)]
+    private ?string $resetTokenHash = null;
+
+    #[ORM\Column(name: 'reset_token_expires_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $resetTokenExpiresAt = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -162,5 +169,54 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function eraseCredentials(): void
     {
+    }
+
+    public function getResetTokenHash(): ?string
+    {
+        return $this->resetTokenHash;
+    }
+
+    public function setResetTokenHash(?string $resetTokenHash): static
+    {
+        $this->resetTokenHash = $resetTokenHash;
+
+        return $this;
+    }
+
+    public function getResetTokenExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->resetTokenExpiresAt;
+    }
+
+    public function setResetTokenExpiresAt(?\DateTimeImmutable $resetTokenExpiresAt): static
+    {
+        $this->resetTokenExpiresAt = $resetTokenExpiresAt;
+
+        return $this;
+    }
+
+    /** Emite un token de recuperación: guarda su hash y su caducidad, y devuelve el token en claro. */
+    public function startPasswordReset(string $rawToken, \DateTimeImmutable $expiresAt): static
+    {
+        $this->resetTokenHash = hash('sha256', $rawToken);
+        $this->resetTokenExpiresAt = $expiresAt;
+
+        return $this;
+    }
+
+    /** Limpia el token una vez usado (o al fijar una contraseña nueva). */
+    public function clearPasswordReset(): static
+    {
+        $this->resetTokenHash = null;
+        $this->resetTokenExpiresAt = null;
+
+        return $this;
+    }
+
+    public function isResetTokenValid(\DateTimeImmutable $now): bool
+    {
+        return null !== $this->resetTokenHash
+            && null !== $this->resetTokenExpiresAt
+            && $this->resetTokenExpiresAt > $now;
     }
 }

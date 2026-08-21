@@ -1,0 +1,19 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block title %}Reserva confirmada{% endblock %}
+
+{% block content %}
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1f2933;">¡Tu reserva está confirmada!</h1>
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">
+        Hemos validado tu pago y tu vuelo queda <strong>reservado en firme</strong>.
+    </p>
+
+    {% include 'emails/_booking_summary.html.twig' %}
+
+    <p style="margin:24px 0;">
+        <a href="{{ url }}" style="display:inline-block;background:#0b3d91;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:15px;">Ver mi reserva</a>
+    </p>
+    <p style="margin:0;font-size:14px;color:#7b8794;">
+        Recuerda llegar con tiempo el día del vuelo. ¡Te esperamos!
+    </p>
+{% endblock %}

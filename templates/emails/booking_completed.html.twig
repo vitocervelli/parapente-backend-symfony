@@ -1,0 +1,20 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block title %}Ya tienes las fotos de tu vuelo{% endblock %}
+
+{% block content %}
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1f2933;">¡Tus fotos ya están disponibles!</h1>
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">
+        Esperamos que hayas disfrutado tu vuelo con <strong>Parapente Bella Vista</strong>.
+        Ya puedes ver y descargar las fotos y vídeos de tu vuelo desde tu perfil.
+    </p>
+
+    {% include 'emails/_booking_summary.html.twig' %}
+
+    <p style="margin:24px 0;">
+        <a href="{{ url }}" style="display:inline-block;background:#0b3d91;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:15px;">Ver mis fotos</a>
+    </p>
+    <p style="margin:0;font-size:14px;color:#7b8794;">
+        ¡Gracias por volar con nosotros!
+    </p>
+{% endblock %}

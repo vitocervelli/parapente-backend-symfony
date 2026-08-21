@@ -1,0 +1,28 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block title %}Reserva pendiente de pago{% endblock %}
+
+{% block content %}
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1f2933;">Hemos recibido tu reserva</h1>
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">
+        Ya te hemos apartado el vuelo. Tu reserva está <strong>pendiente de pago</strong>.
+    </p>
+
+    {% include 'emails/_booking_summary.html.twig' %}
+
+    {% if booking.outstandingAmount != '0.00' %}
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+            Importe pendiente: <strong>{{ booking.currency.format(booking.outstandingAmount) }}</strong>.
+        </p>
+    {% endif %}
+
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">
+        Para completar tu reserva, realiza la transferencia y <strong>sube el comprobante desde la web</strong>:
+    </p>
+    <p style="margin:24px 0;">
+        <a href="{{ url }}" style="display:inline-block;background:#0b3d91;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:15px;">Subir comprobante</a>
+    </p>
+    <p style="margin:0;font-size:14px;color:#7b8794;">
+        En cuanto revisemos tu pago te avisaremos por correo con la confirmación.
+    </p>
+{% endblock %}

@@ -12,3 +12,10 @@ framework:
             policy: 'sliding_window'
             limit: 10
             interval: '15 minutes'
+
+        # Recuperación de contraseña: frena el spam a un buzón y la enumeración
+        # de cuentas. Se aplica por correo + IP.
+        password_forgot:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '15 minutes'

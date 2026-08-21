@@ -1,0 +1,15 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block title %}Bienvenido a Parapente Bella Vista{% endblock %}
+
+{% block content %}
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1f2933;">¡Hola{% if user.fullName %} {{ user.fullName }}{% endif %}!</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Tu cuenta en <strong>Parapente Bella Vista</strong> ya está lista. Desde tu perfil puedes
+        reservar vuelos, subir tus comprobantes de pago y ver las fotos y vídeos de tus vuelos.
+    </p>
+    <p style="margin:24px 0;">
+        <a href="{{ url }}" style="display:inline-block;background:#0b3d91;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:15px;">Ir a mi cuenta</a>
+    </p>
+    <p style="margin:0;font-size:14px;color:#7b8794;">¡Nos vemos en el aire!</p>
+{% endblock %}

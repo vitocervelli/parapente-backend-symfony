@@ -41,6 +41,8 @@ security:
         # Puertas de entrada
         - { path: ^/api/login$, roles: PUBLIC_ACCESS }
         - { path: ^/api/register$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/password/reset$, roles: PUBLIC_ACCESS, methods: [POST] }
 
         # Lectura pública del catálogo, la disponibilidad y las cifras de la portada
         - { path: ^/api/services, roles: PUBLIC_ACCESS, methods: [GET] }

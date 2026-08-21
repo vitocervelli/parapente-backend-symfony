@@ -1,0 +1,30 @@
+{# Resumen de una reserva. Espera la variable `booking`. #}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:16px 0;">
+    <tr>
+        <td style="padding:8px 0;color:#7b8794;font-size:13px;">Referencia</td>
+        <td style="padding:8px 0;text-align:right;font-weight:bold;font-size:14px;">{{ booking.reference }}</td>
+    </tr>
+    {% for line in booking.lines %}
+        <tr>
+            <td style="padding:8px 0;border-top:1px solid #eef1f4;font-size:14px;">
+                {{ line.serviceName }}{% if line.quantity > 1 %} × {{ line.quantity }}{% endif %}
+                {% if line.slot %}
+                    <br><span style="color:#7b8794;font-size:12px;">
+                        {% if line.slot.location %}{{ line.slot.location.name }} · {% endif %}
+                        {% if line.effectiveDate %}{{ line.effectiveDate|date('d/m/Y') }}{% endif %}
+                        · {{ line.slot.startTime|date('H:i') }}
+                    </span>
+                {% endif %}
+            </td>
+            <td style="padding:8px 0;border-top:1px solid #eef1f4;text-align:right;font-size:14px;white-space:nowrap;">
+                {{ booking.currency.format(line.grandTotal) }}
+            </td>
+        </tr>
+    {% endfor %}
+    <tr>
+        <td style="padding:12px 0;border-top:2px solid #e4e7eb;font-weight:bold;font-size:15px;">Total</td>
+        <td style="padding:12px 0;border-top:2px solid #e4e7eb;text-align:right;font-weight:bold;font-size:15px;white-space:nowrap;">
+            {{ booking.currency.format(booking.totalAmount) }}
+        </td>
+    </tr>
+</table>

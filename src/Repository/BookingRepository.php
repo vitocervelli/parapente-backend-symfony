@@ -38,6 +38,22 @@ class BookingRepository extends ServiceEntityRepository
     }
 
     /**
+     * Todas las reservas de un cliente (incluidas las históricas), las más
+     * recientes primero. Para el detalle del cliente en el panel.
+     *
+     * @return list<Booking>
+     */
+    public function findAllForCustomerAdmin(User $customer): array
+    {
+        return $this->baseQuery()
+            ->andWhere('b.customer = :customer')
+            ->setParameter('customer', $customer)
+            ->orderBy('b.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Una reserva concreta de un cliente. Filtrar por cliente aquí es la primera
      * capa que impide ver reservas ajenas cambiando la referencia en la URL.
      */
@@ -127,6 +143,28 @@ class BookingRepository extends ServiceEntityRepository
             )
             ->setParameter('done', BookingStatus::Completed)
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Nº de reservas por cliente, en una sola consulta (evita el N+1 al pintar
+     * el listado de usuarios del panel).
+     *
+     * @return array<int,int> id de cliente => total de reservas
+     */
+    public function countByCustomer(): array
+    {
+        $rows = $this->createQueryBuilder('b')
+            ->select('IDENTITY(b.customer) AS customerId, COUNT(b.id) AS total')
+            ->groupBy('b.customer')
+            ->getQuery()
+            ->getScalarResult();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row['customerId']] = (int) $row['total'];
+        }
+
+        return $map;
     }
 
     /** Siguiente número correlativo del año, para la referencia legible. */

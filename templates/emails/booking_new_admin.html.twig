@@ -1,0 +1,26 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block title %}Nueva reserva pendiente de revisar{% endblock %}
+
+{% block content %}
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1f2933;">Nueva reserva pendiente</h1>
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">
+        Se ha creado una nueva reserva que queda a la espera de pago y revisión.
+    </p>
+    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">
+        Cliente: <strong>{{ booking.customer.displayName }}</strong> ({{ booking.customer.email }})
+        {% if booking.contactPhone %}<br>Teléfono de contacto: {{ booking.contactPhone }}{% endif %}
+    </p>
+
+    {% include 'emails/_booking_summary.html.twig' %}
+
+    {% if booking.customerNote %}
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#52606d;">
+            Nota del cliente: {{ booking.customerNote }}
+        </p>
+    {% endif %}
+
+    <p style="margin:24px 0;">
+        <a href="{{ url }}" style="display:inline-block;background:#0b3d91;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:15px;">Abrir en el panel</a>
+    </p>
+{% endblock %}

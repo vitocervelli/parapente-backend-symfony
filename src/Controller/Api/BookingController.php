@@ -8,6 +8,7 @@ use App\Api\BookingPresenter;
 use App\Booking\BookingCreator;
 use App\Booking\BookingException;
 use App\Entity\User;
+use App\Mail\BookingMailer;
 use App\Repository\BookingRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,6 +26,7 @@ final class BookingController extends AbstractController
         private readonly BookingCreator $creator,
         private readonly BookingRepository $bookings,
         private readonly BookingPresenter $presenter,
+        private readonly BookingMailer $mailer,
     ) {
     }
 
@@ -61,6 +63,8 @@ final class BookingController extends AbstractController
                 ]),
             ], $e->statusCode);
         }
+
+        $this->mailer->bookingCreated($booking);
 
         return new JsonResponse(
             ['data' => $this->presenter->booking($booking)],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Entity\User;
+use App\Mail\BookingMailer;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -32,6 +33,7 @@ final class RegisterController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly JWTTokenManagerInterface $jwt,
         private readonly RateLimiterFactoryInterface $registerLimiter,
+        private readonly BookingMailer $mailer,
     ) {
     }
 
@@ -102,6 +104,8 @@ final class RegisterController extends AbstractController
 
         $this->em->persist($user);
         $this->em->flush();
+
+        $this->mailer->welcome($user);
 
         return new JsonResponse([
             'data' => [

@@ -9,6 +9,7 @@ use App\Entity\PaymentProof;
 use App\Entity\User;
 use App\Enum\BookingStatus;
 use App\Enum\PaymentProofStatus;
+use App\Mail\BookingMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -28,6 +29,7 @@ final class BookingWorkflow
         private readonly SlotLocker $locker,
         #[Autowire('%app.booking_payment_window_hours%')]
         private readonly int $paymentWindowHours,
+        private readonly BookingMailer $mailer,
     ) {
     }
 
@@ -192,6 +194,8 @@ final class BookingWorkflow
         $booking->setConfirmedAt(new \DateTimeImmutable())->setExpiresAt(null)->touch();
 
         $this->em->flush();
+
+        $this->mailer->bookingConfirmed($booking);
     }
 
     /** El vuelo ya ocurrió. */
@@ -203,6 +207,8 @@ final class BookingWorkflow
         $booking->touch();
 
         $this->em->flush();
+
+        $this->mailer->bookingCompleted($booking);
     }
 
     /** No se presentó. Las plazas no se devuelven: la franja ya pasó. */
