@@ -18,7 +18,13 @@ framework:
             messenger.bus.default: []
 
         routing:
-            Symfony\Component\Mailer\Messenger\SendEmailMessage: async
+            # Los correos se envían de forma SÍNCRONA (en la misma petición). En
+            # este hosting no hay un worker `messenger:consume` corriendo, así que
+            # si se enrutaran a `async` quedarían encolados en la tabla
+            # messenger_messages y no se enviarían nunca. Sin enrutado, el bus los
+            # procesa en el acto. BookingMailer ya captura y registra los fallos de
+            # SMTP, de modo que un correo caído nunca rompe la reserva.
+            # Symfony\Component\Mailer\Messenger\SendEmailMessage: async
             Symfony\Component\Notifier\Message\ChatMessage: async
             Symfony\Component\Notifier\Message\SmsMessage: async
 
