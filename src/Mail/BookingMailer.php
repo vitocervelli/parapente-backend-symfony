@@ -33,6 +33,9 @@ final class BookingMailer
         private readonly string $fromEmail,
         #[Autowire('%env(FRONTEND_URL)%')]
         private readonly string $frontendUrl,
+        // Logo blanco de la cabecera; se incrusta por CID en cada correo.
+        #[Autowire('%kernel.project_dir%/assets/emails/logo-white.png')]
+        private readonly string $logoPath,
     ) {
     }
 
@@ -157,10 +160,17 @@ final class BookingMailer
 
     private function base(string $template, array $context): TemplatedEmail
     {
-        return (new TemplatedEmail())
+        $email = (new TemplatedEmail())
             ->from(new Address($this->fromEmail, 'Parapente Bella Vista'))
             ->htmlTemplate($template)
             ->context($context);
+
+        // El logo de la cabecera va incrustado (CID): los clientes de correo
+        // bloquean las imágenes remotas, pero muestran las adjuntas en línea.
+        // En la plantilla se referencia como `cid:logotipo`.
+        $email->embedFromPath($this->logoPath, 'logotipo', 'image/png');
+
+        return $email;
     }
 
     private function accountUrl(): string
