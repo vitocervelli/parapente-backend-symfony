@@ -13,15 +13,20 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /** Listado y detalle de usuarios registrados para el panel. */
 #[Route('/api/admin/users')]
 #[IsGranted('ROLE_ADMIN')]
 final class AdminUserController extends AbstractController
 {
+    private const MIN_PASSWORD = 8;
+
     public function __construct(
         private readonly UserRepository $users,
         private readonly BookingRepository $bookings,
@@ -29,6 +34,8 @@ final class AdminUserController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly PrivateFileStorage $storage,
         private readonly LoggerInterface $logger,
+        private readonly UserPasswordHasherInterface $hasher,
+        private readonly ValidatorInterface $validator,
         // Canal «audit» (config/packages/monolog.yaml): fichero var/log/audit.log.
         private readonly LoggerInterface $auditLogger,
     ) {
@@ -49,6 +56,79 @@ final class AdminUserController extends AbstractController
             'data' => $data,
             'meta' => ['total' => count($data)],
         ]);
+    }
+
+    /**
+     * Crea una cuenta del equipo (ROLE_ADMIN) con correo y contraseña. Solo un
+     * administrador puede llegar aquí (IsGranted a nivel de clase).
+     */
+    #[Route('', name: 'api_admin_users_create', methods: ['POST'])]
+    public function create(Request $request): JsonResponse
+    {
+        try {
+            $payload = $request->toArray();
+        } catch (\Throwable) {
+            return new JsonResponse(
+                ['error' => ['code' => 'invalid_json', 'message' => 'El cuerpo de la petición no es JSON válido.']],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        $email = strtolower(trim((string) ($payload['email'] ?? '')));
+        $password = (string) ($payload['password'] ?? '');
+
+        $errors = [];
+        if ('' === $email) {
+            $errors['email'] = 'Escribe el correo.';
+        }
+        if (\strlen($password) < self::MIN_PASSWORD) {
+            $errors['password'] = sprintf('La contraseña necesita al menos %d caracteres.', self::MIN_PASSWORD);
+        }
+        if ([] !== $errors) {
+            return new JsonResponse(['errors' => $errors], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (null !== $this->users->findOneBy(['email' => $email])) {
+            return new JsonResponse(
+                ['errors' => ['email' => 'Ya existe una cuenta con ese correo.']],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
+        $user = (new User())
+            ->setEmail($email)
+            ->setRoles(['ROLE_ADMIN'])
+            ->setFullName($this->nullableString($payload['fullName'] ?? null))
+            ->setPhone($this->nullableString($payload['phone'] ?? null));
+        $user->setPassword($this->hasher->hashPassword($user, $password));
+
+        $violations = $this->validator->validate($user);
+        if (\count($violations) > 0) {
+            $fieldErrors = [];
+            foreach ($violations as $violation) {
+                $fieldErrors[$violation->getPropertyPath()] = $violation->getMessage();
+            }
+
+            return new JsonResponse(['errors' => $fieldErrors], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->em->persist($user);
+        $this->em->flush();
+
+        // Auditoría: quién dio de alta a qué administrador y cuándo.
+        $current = $this->getUser();
+        $this->auditLogger->info('Administrador creado desde el panel.', [
+            'action' => 'admin.create',
+            'admin' => $current instanceof User
+                ? ['id' => $current->getId(), 'email' => $current->getEmail()]
+                : ['id' => null, 'email' => null],
+            'createdUser' => ['id' => $user->getId(), 'email' => $user->getEmail()],
+        ]);
+
+        return new JsonResponse(
+            ['data' => $this->present($user, 0)],
+            Response::HTTP_CREATED,
+        );
     }
 
     #[Route('/{id}', name: 'api_admin_users_show', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -167,6 +247,17 @@ final class AdminUserController extends AbstractController
             'bookingsDeleted' => \count($bookings),
             'filesDeleted' => $filesDeleted,
         ]]);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return '' === $value ? null : $value;
     }
 
     /** @return array<string,mixed> */
